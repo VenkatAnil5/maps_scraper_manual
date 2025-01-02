@@ -82,7 +82,14 @@ if st.button('Manual Search'):
     st.markdown(f"[Click here to search manually on Google Maps]({maps_url})", unsafe_allow_html=True)
 
 
-def parse_landscaping_data(input_text):
+import pandas as pd
+import openpyxl
+import re
+from io import BytesIO  # Import BytesIO
+import streamlit as st
+
+
+def parse_landscaping_data(input_text, selected_sub_district=""):
     # Initialize lists to store parsed data
     names = []
     roles = []
@@ -162,15 +169,27 @@ if st.button("Parse Data"):
         st.write("### Parsed Data")
         st.dataframe(result_df)
 
-        file_name = f"{search_query.replace(' ', '_')}"
+        # Export to Excel with hyperlinks
+        excel_buffer = BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+            result_df.to_excel(writer, index=False, sheet_name="Parsed Data")
 
-        # Provide an option to download the data as a CSV file
-        csv = result_df.to_csv(index=False)
+            # Add hyperlinks
+            workbook = writer.book
+            worksheet = writer.sheets["Parsed Data"]
+            for row_num, link in enumerate(result_df["Link"], start=2):  # Start from row 2
+                worksheet.cell(row=row_num, column=6).value = link
+                worksheet.cell(row=row_num, column=6).hyperlink = link
+                worksheet.cell(row=row_num, column=6).style = "Hyperlink"
+
+        file_name = f"{search_query.replace(' ', '_')}"
+        file_name = f"{file_name.replace(',', '')}"
+
         st.download_button(
-            label="Download Data as CSV",
-            data=csv,
-            file_name=f"{file_name}.csv",
-            mime="text/csv",
+            label="Download Data as Excel",
+            data=excel_buffer.getvalue(),
+            file_name=f"{file_name}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
     else:
         st.error("Please enter some data to parse.")
